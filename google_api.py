@@ -1,7 +1,7 @@
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
 import os
 import json
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
 def append_to_sheet(spreadsheet_id, row_data):
     creds_dict = json.loads(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"))
