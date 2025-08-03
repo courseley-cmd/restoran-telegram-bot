@@ -1,9 +1,10 @@
 import os
 import json
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
-    filters, CallbackQueryHandler, ContextTypes
+    CallbackQueryHandler, ContextTypes, filters
 )
 from google_api import append_to_sheet
 
@@ -12,31 +13,32 @@ SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 
 user_data = {}
 
+# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("\U0001F916 Бот активен и готов принимать заявки.")
+    await update.message.reply_text("Бот активен и готов принимать заявки.")
 
+# Обработка входящих JSON-заявок
 async def handle_webhook(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = update.message.text
     try:
-        parsed = json.loads(update.message.text)
+        parsed = json.loads(data)
         name = parsed.get("name")
         email = parsed.get("email")
         guests = parsed.get("guests")
 
         context.user_data["current"] = {"name": name, "email": email, "guests": guests}
-        keyboard = [
-            [
-                InlineKeyboardButton("\u2705 Принять", callback_data="accept"),
-                InlineKeyboardButton("\u274C Отклонить", callback_data="decline")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        keyboard = [[
+            InlineKeyboardButton("✅ Принять", callback_data="accept"),
+            InlineKeyboardButton("❌ Отклонить", callback_data="decline")
+        ]]
         await update.message.reply_text(
-            f"""\U0001F37D Новая заявка:\nИмя: {name}\nEmail: {email}\nГостей: {guests}""",
-            reply_markup=reply_markup
+            f"🍽 Новая заявка:\nИмя: {name}\nEmail: {email}\nГостей: {guests}",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
     except Exception as e:
         await update.message.reply_text("Ошибка обработки данных: " + str(e))
 
+# Кнопки Принять/Отклонить
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -45,13 +47,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if action == "accept":
         await query.edit_message_text("Введите номер стола:")
         context.user_data["status"] = "accepted"
+
     elif action == "decline":
-        await query.edit_message_text("\u274C Заявка отклонена.")
+        await query.edit_message_text("❌ Заявка отклонена.")
         data = context.user_data.get("current", {})
         append_to_sheet(SPREADSHEET_ID, [
             data.get("name"), data.get("email"), data.get("guests"), "Отклонено", "-"
         ])
 
+# Обработка номера стола после "Принято"
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("status") == "accepted":
         table = update.message.text
@@ -59,10 +63,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         append_to_sheet(SPREADSHEET_ID, [
             data.get("name"), data.get("email"), data.get("guests"), "Принято", table
         ])
-        await update.message.reply_text(f"\u2705 Заявка принята. Стол: {table}")
+        await update.message.reply_text(f"✅ Заявка принята. Стол: {table}")
         context.user_data["status"] = None
 
-def main():
+# Запуск приложения
+async def main():
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -70,7 +75,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_text))
     app.add_handler(MessageHandler(filters.ALL, handle_webhook))
 
-    app.run_polling()
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
