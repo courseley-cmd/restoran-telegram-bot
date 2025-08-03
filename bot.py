@@ -1,9 +1,11 @@
-
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
-from google_api import append_to_sheet
 import json
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler,
+    filters, CallbackQueryHandler, ContextTypes
+)
+from google_api import append_to_sheet
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
@@ -23,15 +25,17 @@ async def handle_webhook(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data["current"] = {"name": name, "email": email, "guests": guests}
         keyboard = [
-            [InlineKeyboardButton("✅ Принять", callback_data="accept"),
-             InlineKeyboardButton("❌ Отклонить", callback_data="decline")]
+            [
+                InlineKeyboardButton("✅ Принять", callback_data="accept"),
+                InlineKeyboardButton("❌ Отклонить", callback_data="decline")
+            ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
-            f"🍽 Новая заявка:
+            f"""🍽 Новая заявка:
 Имя: {name}
 Email: {email}
-Гостей: {guests}",
+Гостей: {guests}""",
             reply_markup=reply_markup
         )
     except Exception as e:
@@ -41,19 +45,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     action = query.data
+
     if action == "accept":
         await query.edit_message_text("Введите номер стола:")
         context.user_data["status"] = "accepted"
+
     elif action == "decline":
         await query.edit_message_text("❌ Заявка отклонена.")
         data = context.user_data.get("current", {})
-        append_to_sheet(SPREADSHEET_ID, [data.get("name"), data.get("email"), data.get("guests"), "Отклонено", "-"])
+        append_to_sheet(SPREADSHEET_ID, [
+            data.get("name"), data.get("email"), data.get("guests"), "Отклонено", "-"
+        ])
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("status") == "accepted":
         table = update.message.text
         data = context.user_data.get("current", {})
-        append_to_sheet(SPREADSHEET_ID, [data.get("name"), data.get("email"), data.get("guests"), "Принято", table])
+        append_to_sheet(SPREADSHEET_ID, [
+            data.get("name"), data.get("email"), data.get("guests"), "Принято", table
+        ])
         await update.message.reply_text(f"✅ Заявка принята. Стол: {table}")
         context.user_data["status"] = None
 
