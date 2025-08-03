@@ -13,15 +13,12 @@ SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 
 user_data = {}
 
-# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Бот активен и готов принимать заявки.")
 
-# Обработка входящих JSON-заявок
 async def handle_webhook(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = update.message.text
     try:
-        parsed = json.loads(data)
+        parsed = json.loads(update.message.text)
         name = parsed.get("name")
         email = parsed.get("email")
         guests = parsed.get("guests")
@@ -38,7 +35,6 @@ async def handle_webhook(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text("Ошибка обработки данных: " + str(e))
 
-# Кнопки Принять/Отклонить
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -47,7 +43,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if action == "accept":
         await query.edit_message_text("Введите номер стола:")
         context.user_data["status"] = "accepted"
-
     elif action == "decline":
         await query.edit_message_text("❌ Заявка отклонена.")
         data = context.user_data.get("current", {})
@@ -55,7 +50,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             data.get("name"), data.get("email"), data.get("guests"), "Отклонено", "-"
         ])
 
-# Обработка номера стола после "Принято"
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("status") == "accepted":
         table = update.message.text
@@ -66,13 +60,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Заявка принята. Стол: {table}")
         context.user_data["status"] = None
 
-# Запуск приложения
 async def main():
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_text))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.ALL, handle_webhook))
 
     await app.run_polling()
