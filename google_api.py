@@ -1,13 +1,17 @@
-
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 import os
 import json
 
-def append_to_sheet(spreadsheet_id, values):
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds_json = json.loads(os.getenv("GOOGLE_CREDENTIALS_JSON"))
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, scope)
-    client = gspread.authorize(creds)
-    sheet = client.open_by_key(spreadsheet_id).sheet1
-    sheet.append_row(values)
+def append_to_sheet(spreadsheet_id, row_data):
+    creds_dict = json.loads(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"))
+    creds = service_account.Credentials.from_service_account_info(creds_dict)
+    service = build("sheets", "v4", credentials=creds)
+
+    sheet = service.spreadsheets()
+    sheet.values().append(
+        spreadsheetId=spreadsheet_id,
+        range="A1",
+        valueInputOption="RAW",
+        body={"values": [row_data]}
+    ).execute()
